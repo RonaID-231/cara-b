@@ -1,5 +1,5 @@
 /* CARA·B service worker */
-const CACHE = 'cara-b-v2';
+const CACHE = 'cara-b-v3';
 const SHELL = [
   './',
   './index.html',
@@ -23,10 +23,24 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // La API de Deezer y los previews de audio siempre van a la red
-  if (url.hostname.includes('deezer.com') || url.hostname.includes('dzcdn.net')) return;
+  // La API de Deezer, los previews y los proxies siempre van a la red
+  if (url.hostname.includes('deezer.com') || url.hostname.includes('dzcdn.net') ||
+      url.hostname.includes('allorigins') || url.hostname.includes('corsproxy') ||
+      url.hostname.includes('spotify.com')) return;
 
-  // App propia: cache primero, red de respaldo
+  // HTML de la app: red primero (para recibir actualizaciones), caché de respaldo
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy));
+        return res;
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Resto de archivos propios: caché primero, red de respaldo
   if (url.origin === location.origin) {
     e.respondWith(
       caches.match(e.request).then(r => r || fetch(e.request).then(res => {

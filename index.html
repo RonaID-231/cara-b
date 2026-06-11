@@ -250,25 +250,33 @@
 
     <div class="spbox">
       <h2>Importar playlist de Spotify</h2>
+      <input id="spUrl" placeholder="Pega el enlace de una playlist pública" autocomplete="off">
+      <button class="btn" id="btnSpImport">Importar canciones</button>
+      <p class="warn" id="spStatus"></p>
 
-      <div id="spSetup">
-        <p class="note">Solo la primera vez: crea una app gratis en <b>developer.spotify.com/dashboard</b>, en "Redirect URIs" agrega exactamente <code id="spRedirect"></code> y pega aquí tu <b>Client ID</b> (queda guardado en este equipo).</p>
-        <input id="spClient" placeholder="Client ID de Spotify" autocomplete="off">
-        <button class="btn ghost" id="btnSpSave">Guardar Client ID</button>
-      </div>
+      <details>
+        <summary class="note" style="cursor:pointer">Conectar tu cuenta (para playlists privadas y listas de más de 100 canciones)</summary>
+        <div style="display:flex;flex-direction:column;gap:12px;padding-top:12px">
 
-      <div id="spReady" style="display:none">
-        <button class="btn" id="btnSpConnect" style="background:#1DB954;box-shadow:0 8px 24px rgba(29,185,84,.3)">Conectar con Spotify</button>
-        <button class="mini" id="btnSpChange">Cambiar Client ID</button>
-      </div>
+          <div id="spSetup">
+            <p class="note">Solo la primera vez: crea una app gratis en <b>developer.spotify.com/dashboard</b>, en "Redirect URIs" agrega exactamente <code id="spRedirect"></code> y pega aquí tu <b>Client ID</b> (queda guardado en este equipo).</p>
+            <input id="spClient" placeholder="Client ID de Spotify" autocomplete="off" style="margin-top:10px">
+            <button class="btn ghost" id="btnSpSave" style="margin-top:10px">Guardar Client ID</button>
+          </div>
 
-      <div id="spConnected" style="display:none;flex-direction:column;gap:10px">
-        <span class="pill ok">Spotify conectado ✓</span>
-        <select id="spPlaylists"><option>Cargando playlists…</option></select>
-        <input id="spUrl" placeholder="…o pega el enlace de cualquier playlist pública" autocomplete="off">
-        <button class="btn" id="btnSpImport">Importar canciones</button>
-        <p class="warn" id="spStatus"></p>
-      </div>
+          <div id="spReady" style="display:none">
+            <button class="btn" id="btnSpConnect" style="background:#1DB954;box-shadow:0 8px 24px rgba(29,185,84,.3)">Conectar con Spotify</button>
+            <button class="mini" id="btnSpChange">Cambiar Client ID</button>
+          </div>
+
+          <div id="spConnected" style="display:none;flex-direction:column;gap:10px">
+            <span class="pill ok">Spotify conectado ✓</span>
+            <select id="spPlaylists"><option value="">Cargando playlists…</option></select>
+            <p class="note">Elige una playlist tuya y usa el mismo botón "Importar canciones" de arriba.</p>
+          </div>
+
+        </div>
+      </details>
     </div>
     <div id="songList" style="display:flex;flex-direction:column;gap:10px"></div>
     <button class="btn amber" id="btnPrint" disabled>Imprimir cartas (PDF)</button>
@@ -541,28 +549,75 @@ $('btnSpChange').onclick = () => {
 };
 $('btnSpConnect').onclick = () => spLogin();
 
+/* ── Plan B: leer la playlist pública desde la página embed (sin login) ── */
+function deepFind(obj, key){
+  if(obj && typeof obj === 'object'){
+    if(Array.isArray(obj[key]) && obj[key].length) return obj[key];
+    for(const k in obj){ const r = deepFind(obj[k], key); if(r) return r; }
+  }
+  return null;
+}
+
+async function spEmbedTracks(pid){
+  const target = encodeURIComponent('https://open.spotify.com/embed/playlist/' + pid);
+  const proxies = [
+    'https://api.allorigins.win/raw?url=' + target,
+    'https://corsproxy.io/?url=' + target
+  ];
+  let html = null;
+  for(const p of proxies){
+    try{
+      const r = await fetch(p);
+      if(r.ok){
+        const t = await r.text();
+        if(t.includes('__NEXT_DATA__')){ html = t; break; }
+      }
+    }catch(e){ /* siguiente proxy */ }
+  }
+  if(!html) throw new Error('los proxies no respondieron, intenta de nuevo');
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if(!m) throw new Error('Spotify cambió el formato del embed');
+  const list = deepFind(JSON.parse(m[1]), 'trackList');
+  if(!list) throw new Error('no encontré canciones (¿la playlist es privada?)');
+  return list
+    .map(t => `${(t.subtitle || '').split(',')[0].trim()} - ${t.title || ''}`)
+    .filter(l => l.length > 3);
+}
+
 $('btnSpImport').onclick = async () => {
   const urlId = ($('spUrl').value.match(/playlist[\/:]([A-Za-z0-9]+)/) || [])[1];
-  const pid = urlId || $('spPlaylists').value;
-  if(!pid){ $('spStatus').textContent = 'Elige una playlist o pega un enlace.'; return; }
-  $('spStatus').textContent = 'Leyendo playlist…';
+  const selId = $('spPlaylists').value || '';
+  const pid = urlId || selId;
+  if(!pid){ $('spStatus').textContent = 'Pega un enlace de playlist (o conecta tu cuenta y elige una).'; return; }
+
+  const hasSession = !!spToken();
   try{
-    const lines = [];
-    let offset = 0, total = 1;
-    while(offset < total){
-      const d = await spApi(`/playlists/${pid}/tracks?limit=100&offset=${offset}&fields=total,items(track(name,artists(name),is_local))`);
-      total = d.total;
-      d.items.forEach(it => {
-        const t = it.track;
-        if(t && !t.is_local && t.name) lines.push(`${t.artists[0].name} - ${t.name}`);
-      });
-      offset += 100;
+    let lines;
+    if(hasSession){
+      /* Plan A: API oficial — lista completa, sirve para privadas */
+      $('spStatus').textContent = 'Leyendo playlist (API)…';
+      lines = [];
+      let offset = 0, total = 1;
+      while(offset < total){
+        const d = await spApi(`/playlists/${pid}/tracks?limit=100&offset=${offset}&fields=total,items(track(name,artists(name),is_local))`);
+        total = d.total;
+        d.items.forEach(it => {
+          const t = it.track;
+          if(t && !t.is_local && t.name) lines.push(`${t.artists[0].name} - ${t.name}`);
+        });
+        offset += 100;
+      }
+    }else{
+      /* Plan B: página embed pública vía proxy — sin login */
+      if(!urlId){ $('spStatus').textContent = 'Sin conexión a Spotify solo puedo importar por enlace.'; return; }
+      $('spStatus').textContent = 'Leyendo playlist pública…';
+      lines = await spEmbedTracks(urlId);
     }
-    if(!lines.length){ $('spStatus').textContent = 'La playlist está vacía.'; return; }
+    if(!lines.length){ $('spStatus').textContent = 'La playlist está vacía o es privada.'; return; }
     if(lines.length > 100 && !confirm(`Son ${lines.length} canciones; buscarlas tomará varios minutos. ¿Continuar?`)) return;
     await importLines(lines, $('spStatus'));
   }catch(e){
-    $('spStatus').textContent = 'Error: ' + e.message + '. Si la sesión venció, vuelve a conectar.';
+    $('spStatus').textContent = 'Error: ' + e.message;
   }
 };
 
