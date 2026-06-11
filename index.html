@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>CARA B · Juego musical de cartas</title>
+<meta name="theme-color" content="#1B1230">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
@@ -102,12 +108,22 @@
     border-radius:14px;color:var(--crema);font-family:'Outfit';font-size:.95rem;padding:14px;resize:vertical;
   }
   textarea:focus{outline:2px solid var(--magenta)}
+  input,select{
+    width:100%;background:var(--noche-2);border:1px solid var(--linea);
+    border-radius:14px;color:var(--crema);font-family:'Outfit';font-size:.95rem;padding:13px;
+  }
+  input:focus,select:focus{outline:2px solid var(--magenta)}
+  .or{text-align:center;opacity:.45;font-size:.85rem;letter-spacing:.2em;margin:4px 0}
+  .spbox{display:flex;flex-direction:column;gap:12px;background:var(--noche-2);border:1px solid var(--linea);border-radius:18px;padding:16px}
+  .spbox h2{font-family:'Unbounded';font-size:.95rem}
+  .spbox code{background:var(--noche);padding:2px 6px;border-radius:6px;font-size:.78rem;word-break:break-all}
   .song{display:flex;align-items:center;gap:12px;background:var(--noche-2);border:1px solid var(--linea);border-radius:14px;padding:10px}
   .song img{width:46px;height:46px;border-radius:10px;object-fit:cover}
   .song .t{flex:1;min-width:0}
   .song .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.92rem}
   .song .t span{font-size:.8rem;opacity:.65}
   .song .yr{font-family:'Unbounded';font-size:.8rem;color:var(--ambar)}
+  .song .chip{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
   .song button{background:none;border:none;color:var(--crema);opacity:.5;font-size:1.1rem;cursor:pointer;padding:6px}
   .warn{font-size:.85rem;color:var(--ambar)}
   .note{font-size:.83rem;opacity:.6;line-height:1.5}
@@ -126,6 +142,9 @@
       background:#1B1230;color:#F5E9D0;-webkit-print-color-adjust:exact;print-color-adjust:exact;
       direction:ltr;
     }
+    .card.front{border:1px dashed #aaa}
+    .card.front .brand b{color:inherit;opacity:.85}
+    .card .qid{font-family:'Outfit';font-size:6.5pt;letter-spacing:.08em;opacity:.75}
     .card canvas{background:#fff;padding:2mm;border-radius:2mm}
     .card .brand{font-family:'Unbounded';font-size:8pt;letter-spacing:.1em}
     .card .brand b{color:#FF4D8D}
@@ -226,6 +245,31 @@
     <textarea id="songInput" placeholder="Twenty One Pilots - Stressed Out&#10;Soda Stereo - De Música Ligera&#10;Queen - Bohemian Rhapsody"></textarea>
     <button class="btn" id="btnSearch">Buscar canciones</button>
     <p class="warn" id="searchStatus"></p>
+
+    <p class="or">— O —</p>
+
+    <div class="spbox">
+      <h2>Importar playlist de Spotify</h2>
+
+      <div id="spSetup">
+        <p class="note">Solo la primera vez: crea una app gratis en <b>developer.spotify.com/dashboard</b>, en "Redirect URIs" agrega exactamente <code id="spRedirect"></code> y pega aquí tu <b>Client ID</b> (queda guardado en este equipo).</p>
+        <input id="spClient" placeholder="Client ID de Spotify" autocomplete="off">
+        <button class="btn ghost" id="btnSpSave">Guardar Client ID</button>
+      </div>
+
+      <div id="spReady" style="display:none">
+        <button class="btn" id="btnSpConnect" style="background:#1DB954;box-shadow:0 8px 24px rgba(29,185,84,.3)">Conectar con Spotify</button>
+        <button class="mini" id="btnSpChange">Cambiar Client ID</button>
+      </div>
+
+      <div id="spConnected" style="display:none;flex-direction:column;gap:10px">
+        <span class="pill ok">Spotify conectado ✓</span>
+        <select id="spPlaylists"><option>Cargando playlists…</option></select>
+        <input id="spUrl" placeholder="…o pega el enlace de cualquier playlist pública" autocomplete="off">
+        <button class="btn" id="btnSpImport">Importar canciones</button>
+        <p class="warn" id="spStatus"></p>
+      </div>
+    </div>
     <div id="songList" style="display:flex;flex-direction:column;gap:10px"></div>
     <button class="btn amber" id="btnPrint" disabled>Imprimir cartas (PDF)</button>
     <p class="note">Imprime a doble cara por el <b>borde largo</b>: los reversos ya van en espejo para que cada año caiga detrás de su QR. Papel grueso o pegado en cartulina = cartas que duran.</p>
@@ -238,13 +282,35 @@
 
 <script>
 /* ═══════════════ estado global ═══════════════ */
-const deck = [];            // {id,title,artist,year,cover,preview}
+/* paleta de colores fuertes para el futuro modo bingo: cada carta lleva un color */
+const COLORES = [
+  { n:'rojo',     c:'#E63946', t:'#FFFFFF' },
+  { n:'naranja',  c:'#F77F00', t:'#FFFFFF' },
+  { n:'amarillo', c:'#FFC300', t:'#3A2300' },
+  { n:'verde',    c:'#06A77D', t:'#FFFFFF' },
+  { n:'azul',     c:'#1D6FE0', t:'#FFFFFF' },
+  { n:'morado',   c:'#7B2FBE', t:'#FFFFFF' }
+];
+const deck = [];            // {id,title,artist,year,cover,preview,color,colorName}
 let current = null;         // canción en juego
 let sensorMode = true;      // false = tocar para reproducir
 let motionArmed = false;
 let scanStream = null, scanRAF = null;
 const player = new Audio();
 player.preload = 'auto';
+
+/* el mazo sobrevive al cerrar la app */
+function saveDeck(){ try{ localStorage.setItem('carab-deck', JSON.stringify(deck)); }catch(e){} }
+function loadDeck(){
+  try{
+    const d = JSON.parse(localStorage.getItem('carab-deck') || '[]');
+    d.forEach((s,i) => {
+      const pal = COLORES[i % COLORES.length];   // migra mazos con la paleta anterior
+      s.color = pal.c; s.colorName = pal.n; s.textColor = pal.t;
+      deck.push(s);
+    });
+  }catch(e){}
+}
 
 const $ = id => document.getElementById(id);
 const stages = ['st-idle','st-scan','st-ready','st-play','st-guess','st-reveal','st-cards'];
@@ -286,27 +352,35 @@ $('tabPlay').onclick  = () => show('st-idle');
 $('tabCards').onclick = () => show('st-cards');
 
 /* ═══════════════ generador de cartas ═══════════════ */
-$('btnSearch').onclick = async () => {
-  const lines = $('songInput').value.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(!lines.length){ $('searchStatus').textContent = 'Escribe al menos una canción.'; return; }
-  $('searchStatus').textContent = 'Buscando 0/' + lines.length + '…';
+/* núcleo compartido: lista de "Artista - Canción" → busca en Deezer y arma el mazo */
+async function importLines(lines, statusEl){
   let found = 0, miss = [];
   for(const [i,line] of lines.entries()){
-    $('searchStatus').textContent = `Buscando ${i+1}/${lines.length}…`;
+    statusEl.textContent = `Buscando ${i+1}/${lines.length}…`;
     try{
       const r = await dzSearch(line.replace(' - ',' '));
       const hit = r.data && r.data[0];
       if(!hit){ miss.push(line); continue; }
       if(deck.some(s=>s.id===hit.id)) continue;
       const full = await dzTrack(hit.id);          // para obtener el año
-      deck.push(trackFromDz(full, full.release_date));
+      const song = trackFromDz(full, full.release_date);
+      const pal = COLORES[deck.length % COLORES.length];
+      song.color = pal.c; song.colorName = pal.n; song.textColor = pal.t;
+      deck.push(song);
+      saveDeck();
       found++;
       renderDeck();
     }catch(e){ miss.push(line); }
   }
-  $('searchStatus').textContent =
-    `${found} añadida(s).` + (miss.length ? ` Sin resultado: ${miss.join(' · ')}` : '');
+  statusEl.textContent = `${found} añadida(s).` +
+    (miss.length ? ` Sin resultado: ${miss.slice(0,5).join(' · ')}${miss.length>5?` (+${miss.length-5})`:''}` : '');
   $('btnPrint').disabled = deck.length === 0;
+}
+
+$('btnSearch').onclick = () => {
+  const lines = $('songInput').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){ $('searchStatus').textContent = 'Escribe al menos una canción.'; return; }
+  importLines(lines, $('searchStatus'));
 };
 
 function renderDeck(){
@@ -314,11 +388,11 @@ function renderDeck(){
   deck.forEach((s,i)=>{
     const d = document.createElement('div');
     d.className = 'song';
-    d.innerHTML = `<img src="${s.cover}" alt="">
+    d.innerHTML = `<span class="chip" style="background:${s.color||'#ccc'}"></span><img src="${s.cover}" alt="">
       <div class="t"><b>${s.title}</b><span>${s.artist}</span></div>
       <span class="yr">${s.year}</span>
       <button aria-label="Quitar">✕</button>`;
-    d.querySelector('button').onclick = ()=>{ deck.splice(i,1); renderDeck(); $('btnPrint').disabled = deck.length===0; };
+    d.querySelector('button').onclick = ()=>{ deck.splice(i,1); saveDeck(); renderDeck(); $('btnPrint').disabled = deck.length===0; };
     $('songList').appendChild(d);
   });
 }
@@ -333,11 +407,14 @@ $('btnPrint').onclick = () => {
     const fronts = document.createElement('div'); fronts.className = 'sheet';
     const backs  = document.createElement('div'); backs.className  = 'sheet backs';
     chunk.forEach(s=>{
-      const f = document.createElement('div'); f.className='card';
+      const f = document.createElement('div'); f.className='card front';
+      f.style.background = s.color || '#E63946';
+      f.style.color = s.textColor || '#FFFFFF';
       const cv = document.createElement('canvas');
       new QRious({ element: cv, value: 'dz:' + s.id, size: 130 });
       f.appendChild(cv);
-      f.insertAdjacentHTML('beforeend','<div class="brand">CARA<b>·B</b></div>');
+      f.insertAdjacentHTML('beforeend',
+        `<div class="brand">CARA<b>·B</b></div><div class="qid">cód. ${s.id}</div>`);
       fronts.appendChild(f);
 
       const b = document.createElement('div'); b.className='card';
@@ -348,6 +425,145 @@ $('btnPrint').onclick = () => {
     area.appendChild(backs);
   }
   window.print();
+};
+
+/* ═══════════════ Spotify (OAuth PKCE, sin backend) ═══════════════ */
+const SP_SCOPES = 'playlist-read-private playlist-read-collaborative';
+const SP_REDIRECT = location.origin + location.pathname;
+
+const spClientId = () => localStorage.getItem('carab-sp-client') || '';
+function spToken(){
+  try{
+    const t = JSON.parse(localStorage.getItem('carab-sp-token') || 'null');
+    return (t && t.expires_at > Date.now() + 30000) ? t : (t && t.refresh_token ? t : null);
+  }catch(e){ return null; }
+}
+
+function b64url(bytes){
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+async function spLogin(){
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(64)));
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  sessionStorage.setItem('carab-sp-verifier', verifier);
+  const p = new URLSearchParams({
+    client_id: spClientId(), response_type: 'code', redirect_uri: SP_REDIRECT,
+    scope: SP_SCOPES, code_challenge_method: 'S256', code_challenge: challenge
+  });
+  location.href = 'https://accounts.spotify.com/authorize?' + p;
+}
+
+async function spExchange(body){
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body)
+  });
+  if(!res.ok) throw new Error('token ' + res.status);
+  const d = await res.json();
+  const old = spToken() || {};
+  localStorage.setItem('carab-sp-token', JSON.stringify({
+    access_token: d.access_token,
+    refresh_token: d.refresh_token || old.refresh_token,
+    expires_at: Date.now() + (d.expires_in * 1000)
+  }));
+}
+
+async function spHandleRedirect(){
+  const code = new URLSearchParams(location.search).get('code');
+  if(!code) return;
+  const verifier = sessionStorage.getItem('carab-sp-verifier');
+  history.replaceState({}, '', SP_REDIRECT);   // limpia ?code=...
+  if(!verifier) return;
+  try{
+    await spExchange({
+      grant_type: 'authorization_code', code, redirect_uri: SP_REDIRECT,
+      client_id: spClientId(), code_verifier: verifier
+    });
+    show('st-cards');
+  }catch(e){ alert('No pude conectar con Spotify: ' + e.message); }
+}
+
+async function spEnsureToken(){
+  let t = spToken();
+  if(!t) return null;
+  if(t.expires_at <= Date.now() + 30000){
+    try{
+      await spExchange({ grant_type:'refresh_token', refresh_token:t.refresh_token, client_id:spClientId() });
+      t = spToken();
+    }catch(e){ localStorage.removeItem('carab-sp-token'); return null; }
+  }
+  return t;
+}
+
+async function spApi(path){
+  const t = await spEnsureToken();
+  if(!t) throw new Error('sin sesión');
+  const res = await fetch('https://api.spotify.com/v1' + path, {
+    headers: { Authorization: 'Bearer ' + t.access_token }
+  });
+  if(res.status === 401){ localStorage.removeItem('carab-sp-token'); spUpdateUI(); throw new Error('sesión vencida'); }
+  if(!res.ok) throw new Error('Spotify ' + res.status);
+  return res.json();
+}
+
+function spUpdateUI(){
+  const hasId = !!spClientId(), hasTok = !!spToken();
+  $('spSetup').style.display     = hasId ? 'none' : 'block';
+  $('spReady').style.display     = (hasId && !hasTok) ? 'block' : 'none';
+  $('spConnected').style.display = (hasId && hasTok) ? 'flex' : 'none';
+  if(hasId && hasTok) spLoadPlaylists();
+}
+
+async function spLoadPlaylists(){
+  try{
+    const sel = $('spPlaylists');
+    const d = await spApi('/me/playlists?limit=50');
+    sel.innerHTML = '<option value="">— Elige una playlist tuya —</option>' +
+      d.items.map(p => `<option value="${p.id}">${p.name} (${p.tracks.total})</option>`).join('');
+  }catch(e){
+    $('spPlaylists').innerHTML = '<option value="">No pude cargar tus playlists</option>';
+  }
+}
+
+$('btnSpSave').onclick = () => {
+  const id = $('spClient').value.trim();
+  if(id.length < 20){ alert('Ese Client ID no parece válido.'); return; }
+  localStorage.setItem('carab-sp-client', id);
+  spUpdateUI();
+};
+$('btnSpChange').onclick = () => {
+  localStorage.removeItem('carab-sp-client');
+  localStorage.removeItem('carab-sp-token');
+  spUpdateUI();
+};
+$('btnSpConnect').onclick = () => spLogin();
+
+$('btnSpImport').onclick = async () => {
+  const urlId = ($('spUrl').value.match(/playlist[\/:]([A-Za-z0-9]+)/) || [])[1];
+  const pid = urlId || $('spPlaylists').value;
+  if(!pid){ $('spStatus').textContent = 'Elige una playlist o pega un enlace.'; return; }
+  $('spStatus').textContent = 'Leyendo playlist…';
+  try{
+    const lines = [];
+    let offset = 0, total = 1;
+    while(offset < total){
+      const d = await spApi(`/playlists/${pid}/tracks?limit=100&offset=${offset}&fields=total,items(track(name,artists(name),is_local))`);
+      total = d.total;
+      d.items.forEach(it => {
+        const t = it.track;
+        if(t && !t.is_local && t.name) lines.push(`${t.artists[0].name} - ${t.name}`);
+      });
+      offset += 100;
+    }
+    if(!lines.length){ $('spStatus').textContent = 'La playlist está vacía.'; return; }
+    if(lines.length > 100 && !confirm(`Son ${lines.length} canciones; buscarlas tomará varios minutos. ¿Continuar?`)) return;
+    await importLines(lines, $('spStatus'));
+  }catch(e){
+    $('spStatus').textContent = 'Error: ' + e.message + '. Si la sesión venció, vuelve a conectar.';
+  }
 };
 
 /* ═══════════════ escáner QR ═══════════════ */
@@ -511,6 +727,15 @@ $('btnNoSensor').onclick = () => {
     ? 'Jugar sin sensor (tocar para reproducir)'
     : 'Sensor desactivado ✓ — tocar para volver a activarlo';
 };
+
+/* ═══════════════ arranque: PWA + mazo guardado + Spotify ═══════════════ */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+loadDeck();
+if(deck.length){ renderDeck(); $('btnPrint').disabled = false; }
+$('spRedirect').textContent = SP_REDIRECT;
+spHandleRedirect().then(spUpdateUI);
 </script>
 </body>
 </html>
