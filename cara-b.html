@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CARA B · Juego musical de cartas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<style>
+  :root{
+    --noche:#1B1230;      /* fondo: ciruela de medianoche */
+    --noche-2:#251A40;
+    --crema:#F5E9D0;      /* texto: crema de funda de vinilo */
+    --magenta:#FF4D8D;    /* acento principal */
+    --ambar:#FFB341;      /* acento secundario */
+    --linea:rgba(245,233,208,.16);
+    --ok:#5BD9A4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--noche);
+    color:var(--crema);
+    font-family:'Outfit',system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overflow-x:hidden;
+  }
+  .app{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;padding:0 18px 28px}
+
+  /* ───────── header ───────── */
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 14px}
+  .logo{font-family:'Unbounded',sans-serif;font-weight:800;font-size:1.15rem;letter-spacing:.02em}
+  .logo b{color:var(--magenta)}
+  .tabs{display:flex;gap:6px;background:var(--noche-2);border:1px solid var(--linea);border-radius:999px;padding:4px}
+  .tabs button{
+    font-family:'Outfit',sans-serif;font-weight:700;font-size:.85rem;
+    color:var(--crema);background:none;border:none;border-radius:999px;
+    padding:8px 14px;cursor:pointer;opacity:.6;
+  }
+  .tabs button.on{background:var(--magenta);color:#fff;opacity:1}
+
+  /* ───────── vinilo (elemento firma) ───────── */
+  .vinyl{
+    width:210px;height:210px;border-radius:50%;margin:0 auto;position:relative;flex:none;
+    background:
+      radial-gradient(circle at 50% 50%, #111 0 26%, transparent 26%),
+      repeating-radial-gradient(circle at 50% 50%, #0c0c10 0 2px, #1c1c22 2px 4px);
+    box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .vinyl::after{ /* etiqueta central */
+    content:"";position:absolute;inset:33%;border-radius:50%;
+    background:conic-gradient(from 40deg, var(--magenta), var(--ambar), var(--magenta));
+  }
+  .vinyl::before{content:"";position:absolute;inset:48.5%;border-radius:50%;background:var(--noche);z-index:2}
+  .vinyl.spin{animation:spin 1.8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.vinyl.spin{animation:none}}
+
+  /* ───────── estados de juego ───────── */
+  .stage{flex:1;display:none;flex-direction:column;gap:18px;padding-top:8px}
+  .stage.on{display:flex}
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+  h1{font-family:'Unbounded',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.25}
+  .sub{opacity:.7;font-size:.95rem;max-width:30ch;margin:0 auto}
+
+  .btn{
+    font-family:'Unbounded',sans-serif;font-weight:500;font-size:.95rem;
+    background:var(--magenta);color:#fff;border:none;border-radius:16px;
+    padding:16px 26px;cursor:pointer;width:100%;
+    box-shadow:0 8px 24px rgba(255,77,141,.35);
+  }
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:transparent;color:var(--crema);border:1px solid var(--linea);box-shadow:none;font-family:'Outfit';font-weight:600}
+  .btn.amber{background:var(--ambar);color:#3A2300;box-shadow:0 8px 24px rgba(255,179,65,.3)}
+  .btn:disabled{opacity:.45;box-shadow:none}
+  .mini{font-size:.82rem;opacity:.65;background:none;border:none;color:var(--crema);text-decoration:underline;cursor:pointer}
+
+  /* escáner */
+  .cam{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:3/4}
+  .cam video{width:100%;height:100%;object-fit:cover}
+  .cam .frame{position:absolute;inset:18%;border:3px solid var(--ambar);border-radius:18px;
+    mask:linear-gradient(#000 0 0);pointer-events:none;
+    animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.4}}
+
+  .pill{display:inline-block;background:var(--noche-2);border:1px solid var(--linea);border-radius:999px;padding:8px 16px;font-size:.85rem}
+  .pill.ok{border-color:var(--ok);color:var(--ok)}
+
+  /* barra de progreso del preview */
+  .prog{width:100%;height:8px;border-radius:99px;background:var(--noche-2);overflow:hidden}
+  .prog i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--magenta),var(--ambar))}
+
+  /* revelado */
+  .cover{width:180px;height:180px;border-radius:18px;object-fit:cover;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+  .year-big{font-family:'Unbounded';font-weight:800;font-size:3rem;color:var(--ambar)}
+
+  /* ───────── generador de cartas ───────── */
+  textarea{
+    width:100%;min-height:120px;background:var(--noche-2);border:1px solid var(--linea);
+    border-radius:14px;color:var(--crema);font-family:'Outfit';font-size:.95rem;padding:14px;resize:vertical;
+  }
+  textarea:focus{outline:2px solid var(--magenta)}
+  .song{display:flex;align-items:center;gap:12px;background:var(--noche-2);border:1px solid var(--linea);border-radius:14px;padding:10px}
+  .song img{width:46px;height:46px;border-radius:10px;object-fit:cover}
+  .song .t{flex:1;min-width:0}
+  .song .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.92rem}
+  .song .t span{font-size:.8rem;opacity:.65}
+  .song .yr{font-family:'Unbounded';font-size:.8rem;color:var(--ambar)}
+  .song button{background:none;border:none;color:var(--crema);opacity:.5;font-size:1.1rem;cursor:pointer;padding:6px}
+  .warn{font-size:.85rem;color:var(--ambar)}
+  .note{font-size:.83rem;opacity:.6;line-height:1.5}
+
+  /* ───────── hoja de impresión ───────── */
+  #printArea{display:none}
+  @media print{
+    body *{visibility:hidden}
+    #printArea, #printArea *{visibility:visible}
+    #printArea{display:block;position:absolute;left:0;top:0;width:100%}
+    .sheet{display:grid;grid-template-columns:repeat(3,58mm);gap:4mm;justify-content:center;page-break-after:always;padding:8mm 0}
+    .sheet.backs{direction:rtl} /* espejo para impresión a doble cara */
+    .card{
+      width:58mm;height:58mm;border:1px dashed #999;border-radius:4mm;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2mm;
+      background:#1B1230;color:#F5E9D0;-webkit-print-color-adjust:exact;print-color-adjust:exact;
+      direction:ltr;
+    }
+    .card canvas{background:#fff;padding:2mm;border-radius:2mm}
+    .card .brand{font-family:'Unbounded';font-size:8pt;letter-spacing:.1em}
+    .card .brand b{color:#FF4D8D}
+    .card .y{font-family:'Unbounded';font-weight:800;font-size:26pt;color:#FFB341}
+    .card .a{font-size:10pt;font-weight:700;text-align:center;padding:0 4mm}
+    .card .s{font-size:9pt;opacity:.75;font-style:italic;text-align:center;padding:0 4mm}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">CARA<b>·B</b></div>
+    <nav class="tabs">
+      <button id="tabPlay" class="on">Jugar</button>
+      <button id="tabCards">Cartas</button>
+    </nav>
+  </header>
+
+  <!-- ════════ JUGAR ════════ -->
+
+  <!-- idle -->
+  <section class="stage on" id="st-idle">
+    <div class="center">
+      <div class="vinyl" id="vinylIdle"></div>
+      <div>
+        <h1>Escanea una carta</h1>
+        <p class="sub">Apunta al QR de la carta, voltea el celular boca abajo y suena el coro. ¿Quién adivina primero?</p>
+      </div>
+      <button class="btn" id="btnScan">Escanear carta</button>
+      <button class="mini" id="btnManual">Escribir código a mano</button>
+      <button class="mini" id="btnNoSensor">Jugar sin sensor (tocar para reproducir)</button>
+    </div>
+  </section>
+
+  <!-- escaneando -->
+  <section class="stage" id="st-scan">
+    <div class="cam">
+      <video id="video" playsinline muted></video>
+      <div class="frame"></div>
+    </div>
+    <p class="sub" style="text-align:center">Buscando el código de la carta…</p>
+    <button class="btn ghost" id="btnCancelScan">Cancelar</button>
+  </section>
+
+  <!-- carta lista -->
+  <section class="stage" id="st-ready">
+    <div class="center">
+      <span class="pill ok">Carta leída ✓</span>
+      <div class="vinyl"></div>
+      <h1>¿Listos para escuchar?</h1>
+      <p class="sub" id="readyHint">Al tocar el botón, voltea el celular <b>boca abajo</b> sobre la mesa. La música empieza sola.</p>
+      <button class="btn amber" id="btnArm">¡Voltear y jugar!</button>
+    </div>
+  </section>
+
+  <!-- boca abajo / reproduciendo -->
+  <section class="stage" id="st-play">
+    <div class="center">
+      <div class="vinyl" id="vinylPlay"></div>
+      <h1 id="playTitle">Coloca el celular boca abajo 🙃</h1>
+      <p class="sub" id="playHint">El coro suena mientras esté boca abajo. Levántalo para detener.</p>
+      <div class="prog"><i id="bar"></i></div>
+      <button class="btn ghost" id="btnForcePlay">Reproducir ahora</button>
+      <button class="mini" id="btnSkipToGuess">Terminar y adivinar</button>
+    </div>
+  </section>
+
+  <!-- adivinar -->
+  <section class="stage" id="st-guess">
+    <div class="center">
+      <div class="vinyl"></div>
+      <h1>¿Quién adivinó?</h1>
+      <p class="sub">Canción, artista… y si juegan al modo línea de tiempo, ¡el año!</p>
+      <button class="btn" id="btnReveal">Revelar respuesta</button>
+      <button class="btn ghost" id="btnReplay">Escuchar de nuevo</button>
+    </div>
+  </section>
+
+  <!-- revelado -->
+  <section class="stage" id="st-reveal">
+    <div class="center">
+      <img class="cover" id="rvCover" alt="Portada del álbum">
+      <div>
+        <div class="year-big" id="rvYear">1992</div>
+        <h1 id="rvTitle">Título</h1>
+        <p class="sub" id="rvArtist">Artista</p>
+      </div>
+      <button class="btn" id="btnNext">Siguiente carta</button>
+    </div>
+  </section>
+
+  <!-- ════════ CARTAS ════════ -->
+  <section class="stage" id="st-cards">
+    <h1>Crea tu mazo</h1>
+    <p class="note">Pega tus canciones, una por línea, en formato <b>Artista - Canción</b> (cópialas de tu playlist de Spotify). Busco cada una, le asigno un código y armo las cartas listas para imprimir: QR al frente, año y datos al reverso.</p>
+    <textarea id="songInput" placeholder="Twenty One Pilots - Stressed Out&#10;Soda Stereo - De Música Ligera&#10;Queen - Bohemian Rhapsody"></textarea>
+    <button class="btn" id="btnSearch">Buscar canciones</button>
+    <p class="warn" id="searchStatus"></p>
+    <div id="songList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn amber" id="btnPrint" disabled>Imprimir cartas (PDF)</button>
+    <p class="note">Imprime a doble cara por el <b>borde largo</b>: los reversos ya van en espejo para que cada año caiga detrás de su QR. Papel grueso o pegado en cartulina = cartas que duran.</p>
+  </section>
+
+</div>
+
+<!-- hojas de impresión -->
+<div id="printArea"></div>
+
+<script>
+/* ═══════════════ estado global ═══════════════ */
+const deck = [];            // {id,title,artist,year,cover,preview}
+let current = null;         // canción en juego
+let sensorMode = true;      // false = tocar para reproducir
+let motionArmed = false;
+let scanStream = null, scanRAF = null;
+const player = new Audio();
+player.preload = 'auto';
+
+const $ = id => document.getElementById(id);
+const stages = ['st-idle','st-scan','st-ready','st-play','st-guess','st-reveal','st-cards'];
+function show(id){
+  stages.forEach(s => $(s).classList.toggle('on', s===id));
+  $('tabPlay').classList.toggle('on', id!=='st-cards');
+  $('tabCards').classList.toggle('on', id==='st-cards');
+}
+
+/* ═══════════════ Deezer vía JSONP (sin CORS) ═══════════════ */
+function jsonp(url){
+  return new Promise((res,rej)=>{
+    const cb = 'dz' + Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const t = setTimeout(()=>{ cleanup(); rej(new Error('timeout')); }, 10000);
+    function cleanup(){ delete window[cb]; s.remove(); clearTimeout(t); }
+    window[cb] = d => { cleanup(); res(d); };
+    s.onerror = () => { cleanup(); rej(new Error('red')); };
+    s.src = url + (url.includes('?')?'&':'?') + 'output=jsonp&callback=' + cb;
+    document.body.appendChild(s);
+  });
+}
+const dzSearch = q => jsonp('https://api.deezer.com/search?limit=1&q=' + encodeURIComponent(q));
+const dzTrack  = id => jsonp('https://api.deezer.com/track/' + id);
+
+function trackFromDz(t, release){
+  return {
+    id: t.id,
+    title: t.title,
+    artist: t.artist?.name || '—',
+    cover: (t.album?.cover_big || t.album?.cover_medium || ''),
+    preview: t.preview,
+    year: (release || t.release_date || '').slice(0,4) || '????'
+  };
+}
+
+/* ═══════════════ pestañas ═══════════════ */
+$('tabPlay').onclick  = () => show('st-idle');
+$('tabCards').onclick = () => show('st-cards');
+
+/* ═══════════════ generador de cartas ═══════════════ */
+$('btnSearch').onclick = async () => {
+  const lines = $('songInput').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){ $('searchStatus').textContent = 'Escribe al menos una canción.'; return; }
+  $('searchStatus').textContent = 'Buscando 0/' + lines.length + '…';
+  let found = 0, miss = [];
+  for(const [i,line] of lines.entries()){
+    $('searchStatus').textContent = `Buscando ${i+1}/${lines.length}…`;
+    try{
+      const r = await dzSearch(line.replace(' - ',' '));
+      const hit = r.data && r.data[0];
+      if(!hit){ miss.push(line); continue; }
+      if(deck.some(s=>s.id===hit.id)) continue;
+      const full = await dzTrack(hit.id);          // para obtener el año
+      deck.push(trackFromDz(full, full.release_date));
+      found++;
+      renderDeck();
+    }catch(e){ miss.push(line); }
+  }
+  $('searchStatus').textContent =
+    `${found} añadida(s).` + (miss.length ? ` Sin resultado: ${miss.join(' · ')}` : '');
+  $('btnPrint').disabled = deck.length === 0;
+};
+
+function renderDeck(){
+  $('songList').innerHTML = '';
+  deck.forEach((s,i)=>{
+    const d = document.createElement('div');
+    d.className = 'song';
+    d.innerHTML = `<img src="${s.cover}" alt="">
+      <div class="t"><b>${s.title}</b><span>${s.artist}</span></div>
+      <span class="yr">${s.year}</span>
+      <button aria-label="Quitar">✕</button>`;
+    d.querySelector('button').onclick = ()=>{ deck.splice(i,1); renderDeck(); $('btnPrint').disabled = deck.length===0; };
+    $('songList').appendChild(d);
+  });
+}
+
+/* impresión: frentes (QR) + reversos (año) en espejo */
+$('btnPrint').onclick = () => {
+  const area = $('printArea');
+  area.innerHTML = '';
+  const PER = 9; // 3×3 por hoja
+  for(let p=0; p<deck.length; p+=PER){
+    const chunk = deck.slice(p, p+PER);
+    const fronts = document.createElement('div'); fronts.className = 'sheet';
+    const backs  = document.createElement('div'); backs.className  = 'sheet backs';
+    chunk.forEach(s=>{
+      const f = document.createElement('div'); f.className='card';
+      const cv = document.createElement('canvas');
+      new QRious({ element: cv, value: 'dz:' + s.id, size: 130 });
+      f.appendChild(cv);
+      f.insertAdjacentHTML('beforeend','<div class="brand">CARA<b>·B</b></div>');
+      fronts.appendChild(f);
+
+      const b = document.createElement('div'); b.className='card';
+      b.innerHTML = `<div class="y">${s.year}</div><div class="a">${s.artist}</div><div class="s">${s.title}</div>`;
+      backs.appendChild(b);
+    });
+    area.appendChild(fronts);
+    area.appendChild(backs);
+  }
+  window.print();
+};
+
+/* ═══════════════ escáner QR ═══════════════ */
+$('btnScan').onclick = async () => {
+  unlockAudio();
+  show('st-scan');
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    const video = $('video');
+    video.srcObject = scanStream;
+    await video.play();
+    scanLoop(video);
+  }catch(e){
+    stopScan();
+    show('st-idle');
+    alert('No pude abrir la cámara. Revisa permisos o usa "Escribir código a mano".\n(' + e.message + ')');
+  }
+};
+$('btnCancelScan').onclick = () => { stopScan(); show('st-idle'); };
+
+function stopScan(){
+  cancelAnimationFrame(scanRAF);
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+}
+
+function scanLoop(video){
+  const useNative = 'BarcodeDetector' in window;
+  const det = useNative ? new BarcodeDetector({formats:['qr_code']}) : null;
+  const cv = document.createElement('canvas');
+  const ctx = cv.getContext('2d', { willReadFrequently:true });
+
+  const tick = async () => {
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      let raw = null;
+      if(useNative){
+        try{ const codes = await det.detect(video); if(codes.length) raw = codes[0].rawValue; }catch(e){}
+      }else{
+        cv.width = video.videoWidth; cv.height = video.videoHeight;
+        ctx.drawImage(video,0,0);
+        const img = ctx.getImageData(0,0,cv.width,cv.height);
+        const q = jsQR(img.data, cv.width, cv.height);
+        if(q) raw = q.data;
+      }
+      if(raw){ stopScan(); onCode(raw); return; }
+    }
+    scanRAF = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+$('btnManual').onclick = () => {
+  unlockAudio();
+  const c = prompt('Código de la carta (número bajo el QR o ID de Deezer):');
+  if(c) onCode(c.trim());
+};
+
+/* código → cargar canción */
+async function onCode(raw){
+  navigator.vibrate && navigator.vibrate(80);
+  const id = (raw.match(/(\d{4,})/) || [])[1];
+  if(!id){ alert('Ese QR no parece una carta de CARA·B.'); show('st-idle'); return; }
+  try{
+    const t = await dzTrack(id);
+    if(!t || t.error || !t.preview) throw new Error('sin preview');
+    current = trackFromDz(t, t.release_date);
+    player.src = current.preview;
+    player.load();
+    show('st-ready');
+    $('readyHint').innerHTML = sensorMode
+      ? 'Al tocar el botón, voltea el celular <b>boca abajo</b> sobre la mesa. La música empieza sola.'
+      : 'Al tocar el botón empieza la música. Deja el celular boca abajo para no ver la pantalla.';
+  }catch(e){
+    alert('No encontré esa canción en Deezer o no tiene preview disponible.');
+    show('st-idle');
+  }
+}
+
+/* ═══════════════ audio + sensor boca abajo ═══════════════ */
+function unlockAudio(){
+  // desbloquea reproducción en iOS/Android con el primer toque
+  player.muted = true;
+  player.play().then(()=>{ player.pause(); player.muted=false; player.currentTime=0; }).catch(()=>{ player.muted=false; });
+}
+
+$('btnArm').onclick = async () => {
+  // pedir permiso de movimiento en iOS (requiere gesto)
+  if(sensorMode && typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission){
+    try{ await DeviceMotionEvent.requestPermission(); }catch(e){}
+  }
+  // desbloquear ESTE preview con el gesto del usuario
+  try{ await player.play(); player.pause(); player.currentTime = 0; }catch(e){}
+  show('st-play');
+  $('playTitle').textContent = sensorMode ? 'Coloca el celular boca abajo 🙃' : 'Toca "Reproducir ahora"';
+  if(sensorMode) armMotion();
+};
+
+let faceDownSince = 0;
+function armMotion(){
+  if(motionArmed) return;
+  motionArmed = true;
+  window.addEventListener('devicemotion', onMotion);
+}
+function onMotion(e){
+  if(!$('st-play').classList.contains('on')) return;
+  const z = e.accelerationIncludingGravity ? e.accelerationIncludingGravity.z : null;
+  if(z == null) return;
+  const now = Date.now();
+  if(z < -7){                                  // pantalla hacia la mesa
+    if(!faceDownSince) faceDownSince = now;
+    if(now - faceDownSince > 500 && player.paused) startPlayback();
+  }else{
+    faceDownSince = 0;
+    if(z > 5 && !player.paused){               // lo levantaron
+      player.pause();
+      toGuess();
+    }
+  }
+}
+
+function startPlayback(){
+  player.play().catch(()=>{ $('playHint').textContent = 'Tu navegador bloqueó el audio: toca "Reproducir ahora".'; });
+}
+
+$('btnForcePlay').onclick = () => startPlayback();
+$('btnSkipToGuess').onclick = () => { player.pause(); toGuess(); };
+
+player.addEventListener('playing', ()=>{
+  $('vinylPlay').classList.add('spin');
+  $('playTitle').textContent = '♪ Sonando… ¡a adivinar!';
+});
+player.addEventListener('pause', ()=> $('vinylPlay').classList.remove('spin'));
+player.addEventListener('timeupdate', ()=>{
+  if(player.duration) $('bar').style.width = (player.currentTime/player.duration*100) + '%';
+});
+player.addEventListener('ended', ()=> toGuess());
+
+function toGuess(){
+  $('bar').style.width = '0%';
+  show('st-guess');
+}
+
+/* adivinar / revelar / siguiente */
+$('btnReplay').onclick = () => {
+  player.currentTime = 0;
+  show('st-play');
+  $('playTitle').textContent = sensorMode ? 'Boca abajo otra vez 🙃' : 'Toca "Reproducir ahora"';
+};
+$('btnReveal').onclick = () => {
+  $('rvCover').src = current.cover;
+  $('rvYear').textContent = current.year;
+  $('rvTitle').textContent = current.title;
+  $('rvArtist').textContent = current.artist;
+  show('st-reveal');
+};
+$('btnNext').onclick = () => { current = null; player.removeAttribute('src'); show('st-idle'); };
+
+/* modo sin sensor */
+$('btnNoSensor').onclick = () => {
+  sensorMode = !sensorMode;
+  $('btnNoSensor').textContent = sensorMode
+    ? 'Jugar sin sensor (tocar para reproducir)'
+    : 'Sensor desactivado ✓ — tocar para volver a activarlo';
+};
+</script>
+</body>
+</html>
