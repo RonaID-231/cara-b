@@ -1,5 +1,5 @@
 /* CARA·B service worker */
-const CACHE = 'cara-b-v3';
+const CACHE = 'cara-b-v4';
 const SHELL = [
   './',
   './index.html',
