@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>CARA B · Juego musical de cartas</title>
-<meta name="theme-color" content="#1B1230">
+<meta name="theme-color" content="#070708">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -16,12 +16,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
 <style>
   :root{
-    --noche:#1B1230;      /* fondo: ciruela de medianoche */
-    --noche-2:#251A40;
-    --crema:#F5E9D0;      /* texto: crema de funda de vinilo */
-    --magenta:#FF4D8D;    /* acento principal */
-    --ambar:#FFB341;      /* acento secundario */
-    --linea:rgba(245,233,208,.16);
+    --noche:#070708;      /* fondo: negro */
+    --noche-2:#141416;
+    --crema:#F2F2F2;      /* texto: blanco hueso */
+    --magenta:#FF1E3C;    /* acento principal: rojo neón */
+    --ambar:#FF5252;      /* acento secundario: rojo claro */
+    --linea:rgba(255,30,60,.25);
     --ok:#5BD9A4;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -38,7 +38,7 @@
   /* ───────── header ───────── */
   header{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 14px}
   .logo{font-family:'Unbounded',sans-serif;font-weight:800;font-size:1.15rem;letter-spacing:.02em}
-  .logo b{color:var(--magenta)}
+  .logo b{color:var(--magenta);text-shadow:0 0 14px rgba(255,30,60,.9)}
   .tabs{display:flex;gap:6px;background:var(--noche-2);border:1px solid var(--linea);border-radius:999px;padding:4px}
   .tabs button{
     font-family:'Outfit',sans-serif;font-weight:700;font-size:.85rem;
@@ -75,11 +75,11 @@
     font-family:'Unbounded',sans-serif;font-weight:500;font-size:.95rem;
     background:var(--magenta);color:#fff;border:none;border-radius:16px;
     padding:16px 26px;cursor:pointer;width:100%;
-    box-shadow:0 8px 24px rgba(255,77,141,.35);
+    box-shadow:0 0 22px rgba(255,30,60,.55), 0 8px 24px rgba(0,0,0,.5);
   }
   .btn:active{transform:scale(.98)}
   .btn.ghost{background:transparent;color:var(--crema);border:1px solid var(--linea);box-shadow:none;font-family:'Outfit';font-weight:600}
-  .btn.amber{background:var(--ambar);color:#3A2300;box-shadow:0 8px 24px rgba(255,179,65,.3)}
+  .btn.amber{background:var(--ambar);color:#fff;box-shadow:0 0 22px rgba(255,82,82,.5), 0 8px 24px rgba(0,0,0,.5)}
   .btn:disabled{opacity:.45;box-shadow:none}
   .mini{font-size:.82rem;opacity:.65;background:none;border:none;color:var(--crema);text-decoration:underline;cursor:pointer}
 
@@ -114,6 +114,15 @@
   }
   input:focus,select:focus{outline:2px solid var(--magenta)}
   .or{text-align:center;opacity:.45;font-size:.85rem;letter-spacing:.2em;margin:4px 0}
+  .row{display:flex;gap:10px}
+  .row input{flex:1}
+  .row .btn{width:auto;padding:13px 18px;border-radius:14px}
+  .song button.add{
+    width:38px;height:38px;flex:none;border-radius:50%;opacity:1;
+    background:var(--magenta);color:#fff;font-size:1.2rem;font-weight:700;
+    box-shadow:0 0 12px rgba(255,30,60,.5);
+  }
+  .song button.add:disabled{background:var(--noche);box-shadow:none;color:var(--ok);opacity:1}
   .spbox{display:flex;flex-direction:column;gap:12px;background:var(--noche-2);border:1px solid var(--linea);border-radius:18px;padding:16px}
   .spbox h2{font-family:'Unbounded';font-size:.95rem}
   .spbox code{background:var(--noche);padding:2px 6px;border-radius:6px;font-size:.78rem;word-break:break-all}
@@ -139,7 +148,7 @@
     .card{
       width:58mm;height:58mm;border:1px dashed #999;border-radius:4mm;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2mm;
-      background:#1B1230;color:#F5E9D0;-webkit-print-color-adjust:exact;print-color-adjust:exact;
+      background:#0A0A0B;color:#F2F2F2;-webkit-print-color-adjust:exact;print-color-adjust:exact;
       direction:ltr;
     }
     .card.front{border:1px dashed #aaa}
@@ -147,8 +156,8 @@
     .card .qid{font-family:'Outfit';font-size:6.5pt;letter-spacing:.08em;opacity:.75}
     .card canvas{background:#fff;padding:2mm;border-radius:2mm}
     .card .brand{font-family:'Unbounded';font-size:8pt;letter-spacing:.1em}
-    .card .brand b{color:#FF4D8D}
-    .card .y{font-family:'Unbounded';font-weight:800;font-size:26pt;color:#FFB341}
+    .card .brand b{color:#FF1E3C}
+    .card .y{font-family:'Unbounded';font-weight:800;font-size:26pt;color:#FF1E3C}
     .card .a{font-size:10pt;font-weight:700;text-align:center;padding:0 4mm}
     .card .s{font-size:9pt;opacity:.75;font-style:italic;text-align:center;padding:0 4mm}
   }
@@ -241,9 +250,17 @@
   <!-- ════════ CARTAS ════════ -->
   <section class="stage" id="st-cards">
     <h1>Crea tu mazo</h1>
-    <p class="note">Pega tus canciones, una por línea, en formato <b>Artista - Canción</b> (cópialas de tu playlist de Spotify). Busco cada una, le asigno un código y armo las cartas listas para imprimir: QR al frente, año y datos al reverso.</p>
+    <p class="note">Busca tus canciones, tócalas para añadirlas al mazo, y al final imprime las cartas: QR al frente, año y datos al reverso.</p>
+
+    <div class="row">
+      <input id="qSearch" placeholder="Canción o artista…" autocomplete="off" enterkeyhint="search">
+      <button class="btn" id="btnQSearch">Buscar</button>
+    </div>
+    <div id="qResults" style="display:flex;flex-direction:column;gap:10px"></div>
+
+    <p class="or">— O pega una lista —</p>
     <textarea id="songInput" placeholder="Twenty One Pilots - Stressed Out&#10;Soda Stereo - De Música Ligera&#10;Queen - Bohemian Rhapsody"></textarea>
-    <button class="btn" id="btnSearch">Buscar canciones</button>
+    <button class="btn ghost" id="btnSearch">Añadir lista</button>
     <p class="warn" id="searchStatus"></p>
 
     <p class="or">— O —</p>
@@ -360,6 +377,21 @@ $('tabPlay').onclick  = () => show('st-idle');
 $('tabCards').onclick = () => show('st-cards');
 
 /* ═══════════════ generador de cartas ═══════════════ */
+/* añade una canción al mazo por su ID de Deezer (color incluido) */
+async function addTrackById(id){
+  if(deck.some(s => s.id === id)) return 'dup';
+  const full = await dzTrack(id);
+  if(!full || full.error) throw new Error('no encontrada');
+  const song = trackFromDz(full, full.release_date);
+  const pal = COLORES[deck.length % COLORES.length];
+  song.color = pal.c; song.colorName = pal.n; song.textColor = pal.t;
+  deck.push(song);
+  saveDeck();
+  renderDeck();
+  $('btnPrint').disabled = false;
+  return 'ok';
+}
+
 /* núcleo compartido: lista de "Artista - Canción" → busca en Deezer y arma el mazo */
 async function importLines(lines, statusEl){
   let found = 0, miss = [];
@@ -369,21 +401,51 @@ async function importLines(lines, statusEl){
       const r = await dzSearch(line.replace(' - ',' '));
       const hit = r.data && r.data[0];
       if(!hit){ miss.push(line); continue; }
-      if(deck.some(s=>s.id===hit.id)) continue;
-      const full = await dzTrack(hit.id);          // para obtener el año
-      const song = trackFromDz(full, full.release_date);
-      const pal = COLORES[deck.length % COLORES.length];
-      song.color = pal.c; song.colorName = pal.n; song.textColor = pal.t;
-      deck.push(song);
-      saveDeck();
-      found++;
-      renderDeck();
+      if(await addTrackById(hit.id) === 'ok') found++;
     }catch(e){ miss.push(line); }
   }
   statusEl.textContent = `${found} añadida(s).` +
     (miss.length ? ` Sin resultado: ${miss.slice(0,5).join(' · ')}${miss.length>5?` (+${miss.length-5})`:''}` : '');
   $('btnPrint').disabled = deck.length === 0;
 }
+
+/* ── buscador integrado ── */
+async function doQuickSearch(){
+  const q = $('qSearch').value.trim();
+  if(!q) return;
+  const box = $('qResults');
+  box.innerHTML = '<p class="note">Buscando…</p>';
+  try{
+    const r = await jsonp('https://api.deezer.com/search?limit=6&q=' + encodeURIComponent(q));
+    if(!r.data || !r.data.length){ box.innerHTML = '<p class="note">Sin resultados para esa búsqueda.</p>'; return; }
+    box.innerHTML = '';
+    r.data.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'song';
+      const ya = deck.some(s => s.id === t.id);
+      d.innerHTML = `<img src="${t.album?.cover_medium || ''}" alt="">
+        <div class="t"><b>${t.title}</b><span>${t.artist?.name || ''}</span></div>
+        <button class="add" aria-label="Añadir">${ya ? '✓' : '+'}</button>`;
+      const btn = d.querySelector('.add');
+      btn.disabled = ya;
+      btn.onclick = async () => {
+        btn.disabled = true; btn.textContent = '…';
+        try{
+          await addTrackById(t.id);
+          btn.textContent = '✓';
+          navigator.vibrate && navigator.vibrate(40);
+        }catch(e){
+          btn.disabled = false; btn.textContent = '+';
+        }
+      };
+      box.appendChild(d);
+    });
+  }catch(e){
+    box.innerHTML = '<p class="note">Error de red, intenta de nuevo.</p>';
+  }
+}
+$('btnQSearch').onclick = doQuickSearch;
+$('qSearch').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); doQuickSearch(); } });
 
 $('btnSearch').onclick = () => {
   const lines = $('songInput').value.split('\n').map(l=>l.trim()).filter(Boolean);
